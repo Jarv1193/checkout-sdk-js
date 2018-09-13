@@ -8,6 +8,8 @@ import { CheckoutActionCreator, CheckoutRequestSender, CheckoutStore, CheckoutVa
 import { ConfigActionCreator, ConfigRequestSender } from '../config';
 import { OrderActionCreator, OrderRequestSender } from '../order';
 import { RemoteCheckoutActionCreator, RemoteCheckoutRequestSender } from '../remote-checkout';
+import ConsignmentActionCreator from '../shipping/consignment-action-creator';
+import ConsignmentRequestSender from '../shipping/consignment-request-sender';
 
 import {
     PaymentActionCreator,
@@ -49,8 +51,6 @@ import { WepayRiskClient } from './strategies/wepay';
 
 import BraintreeScriptLoader from './strategies/braintree/braintree-script-loader';
 import BraintreeSDKCreator from './strategies/braintree/braintree-sdk-creator';
-import ConsignmentActionCreator from "../shipping/consignment-action-creator";
-import ConsignmentRequestSender from "../shipping/consignment-request-sender";
 
 export default function createPaymentStrategyRegistry(
     store: CheckoutStore,
