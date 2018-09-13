@@ -1,9 +1,6 @@
-import {AddressRequestBody} from '../../../address/address';
-import InternalAddress from '../../../address/internal-address';
-import {BillingAddressUpdateRequestBody} from '../../../billing/billing-address';
-import {BraintreeModule, BraintreeModuleCreator} from '../braintree';
+import { BraintreeModuleCreator } from '../braintree/braintree';
 
-export type EnvironmentType = 'PRODUCTION' | 'TEST';
+type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
 type TotalPriceStatus = 'ESTIMATED' | 'FINAL' | 'NOT_CURRENTLY_KNOWN';
 type TokenizeType = 'AndroidPayCard' | 'CreditCard';

@@ -27,7 +27,7 @@ import {
     BraintreePaypalPaymentStrategy,
     BraintreeVisaCheckoutPaymentStrategy,
     CreditCardPaymentStrategy,
-    GooglePayPaymentStrategy,
+    GooglepayPaymentStrategy,
     KlarnaPaymentStrategy,
     LegacyPaymentStrategy,
     NoPaymentDataRequiredPaymentStrategy,
@@ -43,6 +43,8 @@ import { AfterpayScriptLoader } from './strategies/afterpay';
 import { AmazonPayScriptLoader } from './strategies/amazon-pay';
 import { createBraintreePaymentProcessor, createBraintreeVisaCheckoutPaymentProcessor, VisaCheckoutScriptLoader } from './strategies/braintree';
 import { ChasePayPaymentStrategy, ChasePayScriptLoader } from './strategies/chasepay';
+import { GooglePayScriptLoader } from './strategies/googlepay';
+import GooglePayPaymentProcessor from './strategies/googlepay/googlepay-payment-processor';
 import { KlarnaScriptLoader } from './strategies/klarna';
 import { PaypalScriptLoader } from './strategies/paypal';
 import { SquareScriptLoader } from './strategies/square';
@@ -252,7 +254,25 @@ export default function createPaymentStrategyRegistry(
             paymentStrategyActionCreator,
             requestSender,
             new ChasePayScriptLoader(getScriptLoader()),
-            new WepayRiskClient(scriptLoader)
+            new WepayRiskClient(scriptLoader))
+    );
+
+    const braintreeScriptLoader = new BraintreeScriptLoader(scriptLoader);
+    const braintreeSdkCreator = new BraintreeSDKCreator(braintreeScriptLoader);
+
+    registry.register('googlepay', () =>
+        new GooglepayPaymentStrategy(
+            store,
+            new CheckoutActionCreator(
+                checkoutRequestSender,
+                new ConfigActionCreator(new ConfigRequestSender(requestSender))
+            ),
+            paymentMethodActionCreator,
+            new PaymentStrategyActionCreator(registry, orderActionCreator),
+            paymentActionCreator,
+            orderActionCreator,
+            new GooglePayScriptLoader(scriptLoader),
+            new GooglePayPaymentProcessor(braintreeSdkCreator, createRequestSender())
         )
     );
 
