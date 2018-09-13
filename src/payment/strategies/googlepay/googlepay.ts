@@ -1,20 +1,13 @@
-import { PaymentMethod } from '../..';
-import { Checkout } from '../../../checkout';
-import { BraintreeModule, BraintreeModuleCreator } from '../braintree';
+import { BraintreeModuleCreator } from '../braintree/braintree';
 
-export type EnvironmentType = 'PRODUCTION' | 'TEST';
+type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
 type TotalPriceStatus = 'ESTIMATED' | 'FINAL' | 'NOT_CURRENTLY_KNOWN';
 type TokenizeType = 'AndroidPayCard' | 'CreditCard';
+export const GATEWAY = { braintree: 'braintree' };
 
-export interface GooglePayBraintreeSDK extends BraintreeModule {
-    createPaymentDataRequest(request?: GooglePayDataRequestV1): GooglePayPaymentDataRequestV1;
-    parseResponse(paymentData: GooglePaymentData): Promise<TokenizePayload>;
-}
-
-export interface GooglePayInitializer {
-    initialize(checkout: Checkout, paymentMethod: PaymentMethod, hasShippingAddress: boolean, publishableKey?: string): Promise<GooglePayPaymentDataRequestV1>;
-    teardown(): Promise<void>;
+export interface GooglePayBraintreeSDK {
+    createPaymentDataRequest(request?: GooglePayPaymentDataRequest): { allowedPaymentMethods: string[] } | GooglePayBraintreePaymentDataRequest;
     parseResponse(paymentData: GooglePaymentData): Promise<TokenizePayload>;
 }
 
@@ -24,9 +17,9 @@ export interface GooglePayPaymentOptions {
     environment: EnvironmentType;
 }
 
-export interface GooglePayDataRequestV1 {
+export interface GooglePayPaymentDataRequest {
     merchantInfo: {
-        authJwt?: string,
+        merchantId: string,
     };
     transactionInfo: {
         currencyCode: string,
@@ -42,7 +35,7 @@ export interface GooglePayDataRequestV1 {
     shippingAddressRequired: boolean;
 }
 
-export interface GooglePayPaymentDataRequestV1 {
+export interface GooglePayBraintreePaymentDataRequest {
     allowedPaymentMethods: string[];
     apiVersion: number;
     cardRequirements: {
@@ -83,19 +76,13 @@ export interface GooglePayIsReadyToPayResponse {
 }
 
 export interface GooglePaySDK {
-    payments: {
-        api: {
-            PaymentsClient: {
-                new(options: GooglePayPaymentOptions): GooglePayClient;
-            },
-        },
-    };
+    // TODO: Map function PaymentsClient
+    payments: any;
 }
 
 export interface GooglePayClient {
     isReadyToPay(options: object): Promise<GooglePayIsReadyToPayResponse>;
-    loadPaymentData(paymentDataRequest: GooglePayPaymentDataRequestV1): Promise<GooglePaymentData>;
-    createButton(options: { [key: string]: string | object }): HTMLElement;
+    loadPaymentData(paymentDataRequest: GooglePayBraintreePaymentDataRequest): Promise<GooglePaymentData>;
 }
 
 export interface GooglePayHostWindow extends Window {
@@ -157,29 +144,37 @@ export interface GooglePayAddress {
     phoneNumber: string;
 }
 
+export interface PaymentSuccessPayload {
+    email: string;
+    tokenizePayload: TokenizePayload;
+    billingAddress: GooglePayAddress;
+    shippingAddress: GooglePayAddress;
+}
+
 export interface GooglePaymentsError {
     statusCode: string;
     statusMessage?: string;
 }
 
-export interface PaymentMethodData {
-    methodId: string;
-    paymentData: {
-        method: string,
-        nonce: string,
-        cardInformation: {
-            type: string,
-            number: string,
-        },
-    };
-}
+/**
+ * A set of options that are required to initialize the Visa Checkout payment
+ * method provided by Braintree.
+ *
+ * If the customer chooses to pay with Visa Checkout, they will be asked to
+ * enter their payment details via a modal. You can hook into events emitted by
+ * the modal by providing the callbacks listed below.
+ */
+export interface BraintreeGooglePayPaymentInitializeOptions {
+    /**
+     * A callback that gets called when Visa Checkout fails to initialize or
+     * selects a payment option.
+     *
+     * @param error - The error object describing the failure.
+     */
+    onError?(error: Error): void;
 
-export enum ButtonType {
-    Long = 'long',
-    Short = 'short',
-}
-export enum ButtonColor {
-    Default = 'default',
-    Black = 'black',
-    White = 'white',
+    /**
+     * A callback that gets called when the customer selects a payment option.
+     */
+    onPaymentSelect?(): void;
 }

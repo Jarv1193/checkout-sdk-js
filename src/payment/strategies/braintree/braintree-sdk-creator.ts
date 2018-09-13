@@ -1,6 +1,6 @@
 import { NotInitializedError, NotInitializedErrorType } from '../../../common/error/errors';
 
-import { GooglePayBraintreeSDK } from '../googlepay';
+import {GooglePayBraintreeSDK} from '../googlepay';
 
 import {
     BraintreeClient,
@@ -123,7 +123,7 @@ export default class BraintreeSDKCreator {
         if (!this._googlePay) {
             this._googlePay = Promise.all ([
                 this.getClient(),
-                this._braintreeScriptLoader.loadGooglePayment(),
+                this._braintreeScriptLoader.loadGooglePaymentComponent(),
             ])
                 .then(([client, googlePay]) => {
                     return googlePay.create({ client });
