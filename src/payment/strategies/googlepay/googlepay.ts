@@ -1,4 +1,7 @@
-import { BraintreeModuleCreator } from '../braintree/braintree';
+import {AddressRequestBody} from '../../../address/address';
+import InternalAddress from '../../../address/internal-address';
+import {BillingAddressUpdateRequestBody} from '../../../billing/billing-address';
+import {BraintreeModule, BraintreeModuleCreator} from '../braintree';
 
 export type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
