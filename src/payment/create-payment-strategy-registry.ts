@@ -27,7 +27,7 @@ import {
     BraintreePaypalPaymentStrategy,
     BraintreeVisaCheckoutPaymentStrategy,
     CreditCardPaymentStrategy,
-    GooglepayPaymentStrategy,
+    GooglePayPaymentStrategy,
     KlarnaPaymentStrategy,
     LegacyPaymentStrategy,
     NoPaymentDataRequiredPaymentStrategy,
@@ -261,7 +261,7 @@ export default function createPaymentStrategyRegistry(
     const braintreeSdkCreator = new BraintreeSDKCreator(braintreeScriptLoader);
 
     registry.register('googlepay', () =>
-        new GooglepayPaymentStrategy(
+        new GooglePayPaymentStrategy(
             store,
             new CheckoutActionCreator(
                 checkoutRequestSender,
