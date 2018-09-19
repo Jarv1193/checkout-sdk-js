@@ -10,6 +10,7 @@ import PaymentStrategy from '../payment-strategy';
 
 import {
     BraintreeGooglePayPaymentInitializeOptions,
+    EnvironmentType,
     GooglePaymentsError,
     GooglePaymentData,
     GooglePayBraintreePaymentDataRequest,
@@ -20,14 +21,18 @@ import {
     GooglePayPaymentOptions,
     GooglePaySDK,
     GATEWAY,
-    PaymentSuccessPayload,
-    TokenizePayload
+    PaymentSuccessPayload, TokenizePayload
 } from './googlepay';
 import GooglePayPaymentProcessor from './googlepay-payment-processor';
 import GooglePayScriptLoader from './googlepay-script-loader';
 
-export default class GooglepayPaymentStrategy extends PaymentStrategy {
+export default class GooglePayPaymentStrategy extends PaymentStrategy {
+    private _googlePaymentsClient!: GooglePayClient;
+    private _googlePaymentInstance!: GooglePayBraintreeSDK;
+    private _googlePayOptions!: BraintreeGooglePayPaymentInitializeOptions;
+    private _methodId!: string;
     private _paymentMethod?: PaymentMethod;
+    private _walletButton?: HTMLElement;
 
     constructor(
         store: CheckoutStore,
@@ -49,8 +54,18 @@ export default class GooglepayPaymentStrategy extends PaymentStrategy {
             throw new InvalidArgumentError('Unable to initialize payment because "options.googlepay" argument is not provided.');
         }
 
-        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId))
-            .then(state => {
+        this._googlePayOptions = options.googlepay;
+
+        const walletButton = options.googlepay.walletButton && document.getElementById(options.googlepay.walletButton);
+
+        if (walletButton) {
+            this._walletButton = walletButton;
+            this._walletButton.addEventListener('click', this._handleWalletButtonClick);
+        }
+
+        return this._configureWallet()
+            .then(() => super.initialize(options));
+    }
 
                 this._paymentMethod = state.paymentMethods.getPaymentMethod(methodId);
 
@@ -78,57 +93,89 @@ export default class GooglepayPaymentStrategy extends PaymentStrategy {
             }).then(() => super.initialize(options));
     }
 
-    execute(orderRequest: OrderRequestBody, options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
-        const { payment, ...order } = orderRequest;
+    execute(payload: OrderRequestBody, options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
+        return this._getPayment()
+            .catch(error => {
+                if (error.subtype === MissingDataErrorType.MissingPayment) {
+                    return this._displayWallet()
+                        .then(() => this._getPayment());
+                }
 
-        if (!payment) {
-            throw new InvalidArgumentError('Unable to submit payment because "payload.payment" argument is not provided.');
-        }
+                throw error;
+            })
+            .then(payment =>
+                this._createOrder(payment, payload.useStoreCredit, options)
+            );
+    }
 
-        if (!this._paymentMethod || !this._paymentMethod.initializationData || !this._paymentMethod.initializationData.nonce) {
+    private _configureWallet(): Promise<void> {
+        if (!this._methodId) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
 
-        const { nonce } = this._paymentMethod.initializationData;
+        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(this._methodId))
+            .then(state => {
+                const paymentMethod = state.paymentMethods.getPaymentMethod(this._methodId);
+                const storeConfig = state.config.getStoreConfig();
 
-        return this._store.dispatch(this._orderActionCreator.submitOrder(order, options))
-            .then(() =>
-                this._store.dispatch(this._paymentActionCreator.submitPayment({ ...payment, paymentData: { nonce } }))
-            )
-            .catch((error: Error) => this._handleError(error));
-    }
-
-    deinitialize(options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
-        return this._googlePayPaymentProcessor.teardown()
-            .then(() => super.deinitialize(options));
-    }
-
-    private _braintreeGooglePayInitializer(paymentsClient: GooglePayClient, googlePaymentInstance: GooglePayBraintreeSDK, button: Element, googlePayOptions: BraintreeGooglePayPaymentInitializeOptions): void {
-        paymentsClient.isReadyToPay(
-            {
-                allowedPaymentMethods: googlePaymentInstance.createPaymentDataRequest().allowedPaymentMethods,
-            }).then( (response: GooglePayIsReadyToPayResponse) => {
-            if (response.result) {
-                if (button) {
-                    button.addEventListener('click', (event: any) => {
-                        event.preventDefault();
-
-                        const paymentDataRequest: GooglePayBraintreePaymentDataRequest = googlePaymentInstance.createPaymentDataRequest(this._getGooglePayPaymentRequest()) as GooglePayBraintreePaymentDataRequest;
-
-                        paymentsClient.loadPaymentData(paymentDataRequest)
-                            .then((paymentData: GooglePaymentData) => {
-                                return this._setExternalCheckoutData(paymentData, googlePaymentInstance, googlePayOptions);
-                            }).catch((err: GooglePaymentsError) => {
-                                this._handleError(new Error(err.statusCode));
-                            });
-                    });
-                } else {
-                    this._handleError(new Error('GooglePay button is not ready'));
+                if (!paymentMethod || !paymentMethod.clientToken || !paymentMethod.initializationData.gateway) {
+                    throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
                 }
-            } else {
-                this._handleError(new Error('GooglePay is not ready to pay'));
+
+                if (!storeConfig) {
+                    throw new MissingDataError(MissingDataErrorType.MissingCheckoutConfig);
+                }
+
+                this._paymentMethod = paymentMethod;
+                const gateway = paymentMethod.initializationData.gateway;
+                const testMode = paymentMethod.config.testMode;
+
+                return Promise.all([
+                    this._googlePayScriptLoader.load(),
+                    this._googlePayPaymentProcessor.initialize(paymentMethod.clientToken, gateway), // TODO: Create googlePayCreateProcessor to support multiple gateway (approach TBD)
+                ])
+                    .then(([googlePay, googlePaymentInstance]) => {
+                        this._googlePaymentsClient = this._getGooglePaymentsClient(googlePay, testMode);
+                        this._googlePaymentInstance = googlePaymentInstance;
+                    })
+                    .catch((error: Error) => {
+                        this._handleError(error);
+                    });
+            });
+    }
+
+    private _displayWallet(): Promise<InternalCheckoutSelectors> {
+        return new Promise((resolve, reject) => {
+            if (!this._paymentMethod) {
+                throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
+            }
+
+            if (GATEWAY.braintree === this._paymentMethod.initializationData.gateway) {
+                if (!this._googlePaymentInstance && !this._googlePaymentsClient) {
+                    throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+                }
+
+                this._googlePaymentsClient.isReadyToPay({
+                    allowedPaymentMethods: this._googlePaymentInstance.createPaymentDataRequest().allowedPaymentMethods,
+                }).then( (response: GooglePayIsReadyToPayResponse) => {
+                    if (response) {
+                        const paymentDataRequest: GooglePayBraintreePaymentDataRequest = this._googlePaymentInstance.createPaymentDataRequest(this._getGooglePayPaymentRequest()) as GooglePayBraintreePaymentDataRequest;
+
+                        this._googlePaymentsClient.loadPaymentData(paymentDataRequest)
+                            .then((paymentData: GooglePaymentData) => {
+                                return this._setExternalCheckoutData(paymentData);
+                            }).catch((err: GooglePaymentsError) => {
+                            reject(new Error(err.statusCode));
+                        });
+                    }
+                });
             }
         });
+    }
+
+    private _createOrder(payment: Payment, useStoreCredit?: boolean, options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
+        return this._store.dispatch(this._orderActionCreator.submitOrder({ useStoreCredit }, options))
+            .then(() => this._store.dispatch(this._paymentActionCreator.submitPayment(payment)));
     }
 
     private _getGooglePayPaymentRequest(): GooglePayPaymentDataRequest {
@@ -162,13 +209,26 @@ export default class GooglepayPaymentStrategy extends PaymentStrategy {
         return googlePaymentDataRequest;
     }
 
-    private _getGooglePaymentsClient(google: GooglePaySDK): GooglePayClient {
-        const options: GooglePayPaymentOptions = { environment: 'TEST' };
+    private _getGooglePaymentsClient(google: GooglePaySDK, testMode: boolean | undefined): GooglePayClient {
+        let environment: EnvironmentType;
+
+        if (testMode === undefined) {
+            throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
+        } else {
+            if (testMode) {
+                environment = 'PRODUCTION';
+            } else {
+                environment = 'TEST';
+            }
+        }
+
+        const options: GooglePayPaymentOptions = { environment };
+
         return new google.payments.api.PaymentsClient(options) as GooglePayClient;
     }
 
-    private _setExternalCheckoutData(paymentData: GooglePaymentData, googlePaymentInstance: GooglePayBraintreeSDK, googlePayOptions: BraintreeGooglePayPaymentInitializeOptions) {
-        googlePaymentInstance.parseResponse(paymentData)
+    private _setExternalCheckoutData(paymentData: GooglePaymentData): Promise<void> {
+        return this._googlePaymentInstance.parseResponse(paymentData)
             .then((tokenizePayload: TokenizePayload) => {
                 const paymentSuccessPayload: PaymentSuccessPayload = {
                     tokenizePayload,
@@ -182,13 +242,13 @@ export default class GooglepayPaymentStrategy extends PaymentStrategy {
                     onPaymentSelect = () => {},
                 } = googlePayOptions;
 
-                this._paymentInstrumentSelected(paymentSuccessPayload)
+                return this._paymentInstrumentSelected(paymentSuccessPayload)
                     .then(() => onPaymentSelect())
                     .catch(error => onError(error));
             });
     }
 
-    private _paymentInstrumentSelected(paymentSuccessPayload: PaymentSuccessPayload) {
+    private _paymentInstrumentSelected(paymentSuccessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors> {
         if (!this._paymentMethod) {
             throw new Error('Payment method not initialized');
         }
@@ -206,5 +266,43 @@ export default class GooglepayPaymentStrategy extends PaymentStrategy {
 
     private _handleError(error: Error): never {
         throw new StandardError(error.message);
+    }
+
+    private _getPayment() {
+        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(this._methodId))
+            .then(() => {
+                const state = this._store.getState();
+                const paymentMethod = state.paymentMethods.getPaymentMethod(this._methodId);
+
+                if (!paymentMethod) {
+                    throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
+                }
+
+                if (!paymentMethod.initializationData.nonce) {
+                    throw new MissingDataError(MissingDataErrorType.MissingPayment);
+                }
+
+                const paymentData = {
+                    method: this._methodId,
+                    nonce: paymentMethod.initializationData.nonce,
+                    cardInformation: paymentMethod.initializationData.card_information,
+                };
+
+                this._paymentMethod = paymentMethod;
+
+                return {
+                    methodId: this._methodId,
+                    paymentData,
+                };
+            });
+    }
+
+    @bind
+    private _handleWalletButtonClick(event: Event): void {
+
+        event.preventDefault();
+
+        this._displayWallet();
+
     }
 }
