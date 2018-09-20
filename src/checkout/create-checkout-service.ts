@@ -52,7 +52,7 @@ export default function createCheckoutService(options?: CheckoutServiceOptions):
     };
     const { locale = '', shouldWarnMutation = true } = options || {};
     const requestSender = createRequestSender({ host: options && options.host });
-    const store = createCheckoutStore({ config }, { shouldWarnMutation });
+    const store = createCheckoutStore({}, { shouldWarnMutation });
     const paymentClient = createPaymentClient(store);
     const orderRequestSender = new OrderRequestSender(requestSender);
     const checkoutRequestSender = new CheckoutRequestSender(requestSender);

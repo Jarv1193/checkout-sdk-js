@@ -101,7 +101,9 @@ export default function createPaymentStrategyRegistry(
         new AmazonPayPaymentStrategy(
             store,
             orderActionCreator,
-            billingAddressActionCreator,
+            new BillingAddressActionCreator(
+                new BillingAddressRequestSender(requestSender)
+            ),
             remoteCheckoutActionCreator,
             new AmazonPayScriptLoader(scriptLoader)
         )

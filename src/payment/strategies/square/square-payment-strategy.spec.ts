@@ -4,35 +4,9 @@ import { createRequestSender } from '@bigcommerce/request-sender';
 import { createScriptLoader } from '@bigcommerce/script-loader';
 import { Observable } from 'rxjs';
 
-import {
-    createPaymentStrategyRegistry,
-    PaymentActionCreator,
-    PaymentInitializeOptions,
-    PaymentMethodActionCreator,
-    PaymentMethodRequestSender,
-    PaymentRequestSender,
-    PaymentStrategyActionCreator
-} from '../..';
-import {
-    createCheckoutStore,
-    CheckoutActionCreator,
-    CheckoutRequestSender,
-    CheckoutStore,
-    CheckoutValidator,
-    InternalCheckoutSelectors
-} from '../../../checkout';
-import { getCheckoutState, getCheckoutStoreState } from '../../../checkout/checkouts.mock';
-import {
-    InvalidArgumentError,
-    MissingDataError,
-    NotInitializedError,
-    StandardError,
-    TimeoutError,
-    UnsupportedBrowserError
-} from '../../../common/error/errors';
-import ConfigActionCreator from '../../../config/config-action-creator';
-import ConfigRequestSender from '../../../config/config-request-sender';
-import { getConfigState } from '../../../config/configs.mock';
+import { PaymentActionCreator, PaymentRequestSender } from '../..';
+import { createCheckoutStore, CheckoutRequestSender, CheckoutStore, CheckoutValidator, InternalCheckoutSelectors } from '../../../checkout';
+import { InvalidArgumentError, TimeoutError } from '../../../common/error/errors';
 import { OrderActionCreator, OrderActionType, OrderRequestSender } from '../../../order';
 import { getPaymentMethodsState, getSquare } from '../../../payment/payment-methods.mock';
 import { PaymentActionType } from '../../payment-actions';
@@ -56,11 +30,8 @@ describe('SquarePaymentStrategy', () => {
     let orderRequestSender: OrderRequestSender;
     let paymentActionCreator: PaymentActionCreator;
     let paymentMethod: PaymentMethod;
-    let paymentMethodActionCreator: PaymentMethodActionCreator;
-    let paymentStrategyActionCreator: PaymentStrategyActionCreator;
-    let scriptLoader: SquareScriptLoader;
-    let store: CheckoutStore;
-    let strategy: SquarePaymentStrategy;
+    let callbacks: SquareFormCallbacks;
+    let orderRequestSender: OrderRequestSender;
     let submitOrderAction: Observable<Action>;
     let submitPaymentAction: Observable<Action>;
 
