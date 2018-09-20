@@ -42,6 +42,8 @@ import {
 import { AfterpayScriptLoader } from './strategies/afterpay';
 import { AmazonPayScriptLoader } from './strategies/amazon-pay';
 import { createBraintreePaymentProcessor, createBraintreeVisaCheckoutPaymentProcessor, VisaCheckoutScriptLoader } from './strategies/braintree';
+import BraintreeScriptLoader from './strategies/braintree/braintree-script-loader';
+import BraintreeSDKCreator from './strategies/braintree/braintree-sdk-creator';
 import { ChasePayPaymentStrategy, ChasePayScriptLoader } from './strategies/chasepay';
 import { GooglePayScriptLoader } from './strategies/googlepay';
 import GooglePayPaymentProcessor from './strategies/googlepay/googlepay-payment-processor';
@@ -49,9 +51,6 @@ import { KlarnaScriptLoader } from './strategies/klarna';
 import { PaypalScriptLoader } from './strategies/paypal';
 import { SquareScriptLoader } from './strategies/square';
 import { WepayRiskClient } from './strategies/wepay';
-
-import BraintreeScriptLoader from './strategies/braintree/braintree-script-loader';
-import BraintreeSDKCreator from './strategies/braintree/braintree-sdk-creator';
 
 export default function createPaymentStrategyRegistry(
     store: CheckoutStore,
@@ -62,6 +61,9 @@ export default function createPaymentStrategyRegistry(
     const scriptLoader = getScriptLoader();
     const billingAddressActionCreator = new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender));
     const braintreePaymentProcessor = createBraintreePaymentProcessor(scriptLoader);
+    const braintreeScriptLoader = new BraintreeScriptLoader(scriptLoader);
+    const braintreeSdkCreator = new BraintreeSDKCreator(braintreeScriptLoader);
+
     const checkoutRequestSender = new CheckoutRequestSender(requestSender);
     const consignmentRequestSender = new ConsignmentRequestSender(requestSender);
     const checkoutValidator = new CheckoutValidator(checkoutRequestSender);
@@ -257,9 +259,6 @@ export default function createPaymentStrategyRegistry(
             new WepayRiskClient(scriptLoader))
     );
 
-    const braintreeScriptLoader = new BraintreeScriptLoader(scriptLoader);
-    const braintreeSdkCreator = new BraintreeSDKCreator(braintreeScriptLoader);
-
     registry.register('googlepay', () =>
         new GooglePayPaymentStrategy(
             store,
@@ -272,7 +271,10 @@ export default function createPaymentStrategyRegistry(
             paymentActionCreator,
             orderActionCreator,
             new GooglePayScriptLoader(scriptLoader),
-            new GooglePayPaymentProcessor(braintreeSdkCreator, createRequestSender())
+            new GooglePayPaymentProcessor(braintreeSdkCreator, createRequestSender()),
+            new BillingAddressActionCreator(client),
+            remoteCheckoutActionCreator,
+            new ConsignmentActionCreator(consignmentRequestSender, checkoutRequestSender)
         )
     );
 
