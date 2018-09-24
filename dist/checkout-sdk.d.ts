@@ -270,28 +270,6 @@ declare interface ChasePayCustomerInitializeOptions {
     container: string;
 }
 
-declare interface ChasePayInitializeOptions {
-    /**
-     * This container is used to host the chasepay branding logo.
-     * It should be an HTML element.
-     */
-    logoContainer?: string;
-    /**
-     * This walletButton is used to set an event listener, provide an element ID if you want
-     * users to be able to launch the ChasePay wallet modal by clicking on a button.
-     * It should be an HTML element.
-     */
-    walletButton?: string;
-    /**
-     * A callback that gets called when the customer selects a payment option.
-     */
-    onPaymentSelect?(): void;
-    /**
-     * A callback that gets called when the customer cancels their payment selection.
-     */
-    onCancel?(): void;
-}
-
 declare interface Checkout {
     id: string;
     billingAddress?: BillingAddress;
@@ -1231,7 +1209,6 @@ declare interface CheckoutServiceOptions {
     locale?: string;
     host?: string;
     shouldWarnMutation?: boolean;
-    externalSource?: string;
 }
 
 declare interface CheckoutSettings {
@@ -2052,29 +2029,6 @@ export declare function createCheckoutButtonInitializer(options?: CheckoutButton
 export declare function createCheckoutService(options?: CheckoutServiceOptions): CheckoutService;
 
 /**
- * Creates an instance of `CurrencyService`.
- *
- * ```js
- * const { data } = checkoutService.getState();
- * const config = data.getConfig();
- * const checkout = data.getCheckout();
- * const currencyService = createCurrencyService(config);
- *
- * currencyService.toStoreCurrency(checkout.grandTotal);
- * currencyService.toCustomerCurrency(checkout.grandTotal);
- * ```
- *
- * Please note that `CurrencyService` is currently in an early stage
- * of development. Therefore the API is unstable and not ready for public
- * consumption.
- *
- * @alpha
- * @param config - The config object containing the currency configuration
- * @returns an instance of `CurrencyService`.
- */
-export declare function createCurrencyService(config: StoreConfig): CurrencyService;
-
-/**
  * Creates an instance of `LanguageService`.
  *
  * ```js
@@ -2109,15 +2063,13 @@ declare interface Currency {
     decimalPlaces: number;
 }
 
-/**
- * Responsible for formatting and converting currencies.
- */
-declare class CurrencyService {
-    private _storeConfig;
-    private _customerFormatter;
-    private _storeFormatter;
-    toCustomerCurrency(amount: number): string;
-    toStoreCurrency(amount: number): string;
+declare interface Currency_2 {
+    code: string;
+    decimalPlaces: string;
+    decimalSeparator: string;
+    symbolLocation: string;
+    symbol: string;
+    thousandsSeparator: string;
 }
 
 declare interface Customer {
@@ -2160,12 +2112,7 @@ declare interface CustomerInitializeOptions extends CustomerRequestOptions {
      * when using Visa Checkout provided by Braintree.
      */
     braintreevisacheckout?: BraintreeVisaCheckoutCustomerInitializeOptions;
-    /**
-     * The options that are required to initialize the Chasepay payment method.
-     * They can be omitted unless you need to support Chasepay.
-     */
     chasepay?: ChasePayCustomerInitializeOptions;
-    masterpass?: MasterpassCustomerInitializeOptions;
 }
 
 /**
@@ -2420,19 +2367,6 @@ declare interface Locales {
     [key: string]: string;
 }
 
-declare interface MasterpassCustomerInitializeOptions {
-    /**
-     * The ID of a container which the checkout button should be inserted into.
-     */
-    container: string;
-}
-
-declare interface NonceGenerationError {
-    type: string;
-    message: string;
-    field: string;
-}
-
 declare interface Order {
     baseAmount: number;
     billingAddress: BillingAddress;
@@ -2545,11 +2479,6 @@ declare interface PaymentInitializeOptions extends PaymentRequestOptions {
      * They can be omitted unless you need to support Square.
      */
     square?: SquarePaymentInitializeOptions;
-    /**
-     * The options that are required to initialize the Chasepay payment method.
-     * They can be omitted unless you need to support Chasepay.
-     */
-    chasepay?: ChasePayInitializeOptions;
 }
 
 declare interface PaymentMethod {
@@ -2692,7 +2621,13 @@ declare interface ShopperConfig {
     showNewsletterSignup: boolean;
 }
 
-declare interface ShopperCurrency extends StoreCurrency {
+declare interface ShopperCurrency {
+    code: string;
+    symbolLocation: string;
+    symbol: string;
+    decimalPlaces: string;
+    decimalSeparator: string;
+    thousandsSeparator: string;
     exchangeRate: string;
 }
 
@@ -2744,18 +2679,6 @@ declare interface SquarePaymentInitializeOptions {
     inputStyles?: Array<{
         [key: string]: string;
     }>;
-    /**
-     * Initialize Masterpass placeholder ID
-     */
-    masterpass?: SquareFormElement;
-    /**
-     * A callback that gets called when the customer selects a payment option.
-     */
-    onPaymentSelect?(): void;
-    /**
-     * A callback that gets called when an error occurs in the card nonce generation
-     */
-    onError?(errors?: NonceGenerationError[]): void;
 }
 
 declare class StandardError extends Error {
@@ -2766,7 +2689,7 @@ declare class StandardError extends Error {
 declare interface StoreConfig {
     cdnPath: string;
     checkoutSettings: CheckoutSettings;
-    currency: StoreCurrency;
+    currency: Currency_2;
     formFields: FormFields;
     links: StoreLinks;
     paymentSettings: PaymentSettings;
@@ -2775,15 +2698,6 @@ declare interface StoreConfig {
     imageDirectory: string;
     isAngularDebuggingEnabled: boolean;
     shopperCurrency: ShopperCurrency;
-}
-
-declare interface StoreCurrency {
-    code: string;
-    decimalPlaces: string;
-    decimalSeparator: string;
-    symbolLocation: string;
-    symbol: string;
-    thousandsSeparator: string;
 }
 
 declare interface StoreLinks {
