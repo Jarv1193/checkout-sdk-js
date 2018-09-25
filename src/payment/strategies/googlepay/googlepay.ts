@@ -1,4 +1,7 @@
-import { BraintreeModuleCreator } from '../braintree/braintree';
+import {AddressRequestBody} from '../../../address/address';
+import {BillingAddressUpdateRequestBody} from '../../../billing/billing-address';
+import Checkout from '../../../checkout/checkout';
+import {BraintreeModule, BraintreeModuleCreator} from '../braintree';
 
 export type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
@@ -82,7 +85,7 @@ export interface GooglePaySDK {
 
 export interface GooglePayClient {
     isReadyToPay(options: object): Promise<GooglePayIsReadyToPayResponse>;
-    loadPaymentData(paymentDataRequest: GooglePayBraintreePaymentDataRequest): Promise<GooglePaymentData>;
+    loadPaymentData(paymentDataRequest: any): Promise<GooglePaymentData>;
 }
 
 export interface GooglePayHostWindow extends Window {
@@ -177,4 +180,29 @@ export interface BraintreeGooglePayPaymentInitializeOptions {
      * A callback that gets called when the customer selects a payment option.
      */
     onPaymentSelect?(): void;
+}
+
+export default function mapGooglePayAddressToRequestAddress(address: GooglePayAddress, id?: string): AddressRequestBody | BillingAddressUpdateRequestBody {
+    return {
+        id,
+        firstName: address.name.split(' ').slice(0, -1).join(' '),
+        lastName: address.name.split(' ').slice(-1).join(' '),
+        company: address.companyName,
+        address1: address.address1,
+        address2: address.address2 + address.address3 + address.address4 + address.address5,
+        city: address.locality,
+        stateOrProvince: address.administrativeArea,
+        stateOrProvinceCode: address.administrativeArea,
+        postalCode: address.postalCode,
+        countryCode: address.countryCode,
+        phone: address.phoneNumber,
+        customFields: [],
+    };
+}
+
+// TODO: Type all this variables and methods
+export interface GooglePayInitializer {
+    initialize(checkout: Checkout, clientToken?: string, publishableKey?: string): any;
+    teardown(): Promise<void>;
+    parseResponse(paymentData: any): Promise<any>;
 }
