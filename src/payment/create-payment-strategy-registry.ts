@@ -42,12 +42,7 @@ import {
 import { AfterpayScriptLoader } from './strategies/afterpay';
 import { AmazonPayScriptLoader } from './strategies/amazon-pay';
 import { createBraintreePaymentProcessor, createBraintreeVisaCheckoutPaymentProcessor, VisaCheckoutScriptLoader } from './strategies/braintree';
-<<<<<<< HEAD
-import { GooglePayScriptLoader } from './strategies/googlepay';
-import GooglePayPaymentProcessor from './strategies/googlepay/googlepay-payment-processor';
-=======
 import { ChasePayPaymentStrategy, ChasePayScriptLoader } from './strategies/chasepay';
->>>>>>> feat(payment): INT-616 Add Chase Pay wallet support
 import { KlarnaScriptLoader } from './strategies/klarna';
 import { PaypalScriptLoader } from './strategies/paypal';
 import { SquareScriptLoader } from './strategies/square';
@@ -65,12 +60,6 @@ export default function createPaymentStrategyRegistry(
     const scriptLoader = getScriptLoader();
     const billingAddressActionCreator = new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender));
     const braintreePaymentProcessor = createBraintreePaymentProcessor(scriptLoader);
-<<<<<<< HEAD
-    const braintreeScriptLoader = new BraintreeScriptLoader(scriptLoader);
-    const braintreeSdkCreator = new BraintreeSDKCreator(braintreeScriptLoader);
-
-=======
->>>>>>> feat(payment): INT-616 Add Chase Pay wallet support
     const checkoutRequestSender = new CheckoutRequestSender(requestSender);
     const consignmentRequestSender = new ConsignmentRequestSender(requestSender);
     const checkoutValidator = new CheckoutValidator(checkoutRequestSender);
@@ -253,24 +242,6 @@ export default function createPaymentStrategyRegistry(
         )
     );
 
-<<<<<<< HEAD
-    registry.register('googlepay', () =>
-        new GooglePayPaymentStrategy(
-            store,
-            new CheckoutActionCreator(
-                checkoutRequestSender,
-                new ConfigActionCreator(new ConfigRequestSender(requestSender))
-            ),
-            paymentMethodActionCreator,
-            new PaymentStrategyActionCreator(registry, orderActionCreator),
-            paymentActionCreator,
-            orderActionCreator,
-            new GooglePayScriptLoader(scriptLoader),
-            new GooglePayPaymentProcessor(braintreeSdkCreator, createRequestSender()),
-            new BillingAddressActionCreator(paymentClient),
-            remoteCheckoutActionCreator,
-            new ConsignmentActionCreator(consignmentRequestSender, checkoutRequestSender)
-=======
     registry.register('chasepay', () =>
         new ChasePayPaymentStrategy(
             store,
@@ -282,7 +253,6 @@ export default function createPaymentStrategyRegistry(
             requestSender,
             new ChasePayScriptLoader(getScriptLoader()),
             new WepayRiskClient(scriptLoader)
->>>>>>> feat(payment): INT-616 Add Chase Pay wallet support
         )
     );
 
