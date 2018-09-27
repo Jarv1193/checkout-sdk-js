@@ -259,7 +259,7 @@ export default function createPaymentStrategyRegistry(
             orderActionCreator,
             new GooglePayScriptLoader(scriptLoader),
             new GooglePayPaymentProcessor(braintreeSdkCreator, createRequestSender()),
-            new BillingAddressActionCreator(client),
+            new BillingAddressActionCreator(paymentClient),
             remoteCheckoutActionCreator,
             new ConsignmentActionCreator(consignmentRequestSender, checkoutRequestSender)
         )
