@@ -167,7 +167,7 @@ export interface GooglePaymentsError {
  * enter their payment details via a modal. You can hook into events emitted by
  * the modal by providing the callbacks listed below.
  */
-export interface BraintreeGooglePayPaymentInitializeOptions {
+export interface GooglePayPaymentInitializeOptions {
     /**
      * A callback that gets called when Visa Checkout fails to initialize or
      * selects a payment option.
@@ -201,7 +201,7 @@ export default function mapGooglePayAddressToRequestAddress(address: GooglePayAd
 }
 
 export interface GooglePayInitializer {
-    initialize(checkout: Checkout, paymentMethod?: PaymentMethod, publishableKey?: string): Promise<GooglePayPaymentDataRequestV1>;
+    initialize(checkout: Checkout, paymentMethod: PaymentMethod, hasShippingAddress: boolean, publishableKey?: string): Promise<GooglePayPaymentDataRequestV1>;
     teardown(): Promise<void>;
     parseResponse(paymentData: any): Promise<TokenizePayload>;
 }
