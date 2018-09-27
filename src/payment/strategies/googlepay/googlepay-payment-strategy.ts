@@ -34,10 +34,11 @@ import {
     GooglePayClient,
     GooglePayInitializer,
     GooglePayIsReadyToPayResponse,
+    GooglePayPaymentDataRequestV1,
     GooglePayPaymentOptions,
-    GooglePaySDK,
-    PaymentSuccessPayload, TokenizePayload
+    GooglePaySDK, PaymentSuccessPayload, TokenizePayload
 } from './googlepay';
+import GooglePayBraintreeInitializer from './googlepay-braintree-initializer';
 import GooglePayScriptLoader from './googlepay-script-loader';
 
 export default class GooglePayPaymentStrategy extends PaymentStrategy {
@@ -46,7 +47,7 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     private _methodId!: string;
     private _paymentMethod?: PaymentMethod;
     private _walletButton?: HTMLElement;
-    private _googlePaymentDataRequest: any;
+    private _googlePaymentDataRequest!: GooglePayPaymentDataRequestV1;
 
     constructor(
         store: CheckoutStore,
@@ -59,7 +60,6 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
         private _googlePayInitializer: GooglePayInitializer, // || GooglePayStripeInitializer
         private _requestSender: RequestSender,
         private _billingAddressActionCreator: BillingAddressActionCreator,
-        private _remoteCheckoutActionCreator: RemoteCheckoutActionCreator,
         private _consignmentActionCreator: ConsignmentActionCreator
     ) {
         super(store);
@@ -93,7 +93,7 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
 
                 const gateway = this._paymentMethod.initializationData.gateway;
 
-        return this._googlePayInitializer.teardown() // TODO: teardown google pay js
+        return this._googlePayInitializer.teardown()
             .then(() => super.deinitialize(options));
     }
 
@@ -183,7 +183,7 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                 const storeConfig = state.config.getStoreConfig();
                 const checkout = state.checkout.getCheckout();
 
-                if (!paymentMethod || !paymentMethod.clientToken || !paymentMethod.initializationData.gateway) {
+                if (!paymentMethod) {
                     throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
                 }
 
@@ -200,7 +200,7 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
 
                 return Promise.all([
                     this._googlePayScriptLoader.load(),
-                    this._googlePayInitializer.initialize(checkout, paymentMethod.clientToken),
+                    this._googlePayInitializer.initialize(checkout, paymentMethod),
                 ])
                     .then(([googlePay, googlePayPaymentDataRequest]) => {
                         this._googlePaymentsClient = this._getGooglePaymentsClient(googlePay, testMode);
@@ -241,39 +241,6 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
         return this._store.dispatch(this._orderActionCreator.submitOrder({ useStoreCredit }, options))
             .then(() => this._store.dispatch(this._paymentActionCreator.submitPayment(payment)));
     }
-
-    // private _getGooglePayPaymentRequest(): GooglePayPaymentDataRequest {
-    //     const state = this._store.getState();
-    //     const checkout = state.checkout.getCheckout();
-    //
-    //     if (!checkout) {
-    //         throw new MissingDataError(MissingDataErrorType.MissingCheckout);
-    //     }
-    //     const googlePaymentDataRequest: GooglePayPaymentDataRequest = {
-    //         merchantInfo: {
-    //             merchantId: '01234567890123456789',
-    //             // merchantName: 'BIGCOMMERCE',
-    //             // authJwt: 'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjaGFudE9yaWdpbiI6Ind3dy5iaWdjb21tZXJjZS5jb20iLCJtZXJjaGFudElkIjoiMTIzNDUiLCJpYXQiOjE1Mzc1MDE0Mjh9.YjA2YTg5MmQ0MWI3Mjk4ZTdlNzI2ZmYzYzIyYzZkMTY0ZTU4OTlmNTljYmVkNjZkNWEwOGI2MjE3ZmZlNTc1Mg',
-    //         },
-    //         transactionInfo: {
-    //             currencyCode: checkout.cart.currency.code,
-    //             totalPriceStatus: 'FINAL',
-    //             totalPrice: checkout.grandTotal.toString(),
-    //         },
-    //         cardRequirements: {
-    //             // We recommend collecting billing address information, at minimum
-    //             // billing postal code, and passing that billing postal code with all
-    //             // Google Pay transactions as a best practice.
-    //             billingAddressRequired: true,
-    //             billingAddressFormat: 'FULL',
-    //         },
-    //         shippingAddressRequired: true,
-    //         emailRequired: true,
-    //         phoneNumberRequired: true,
-    //     };
-    //
-    //     return googlePaymentDataRequest;
-    // }
 
     private _getGooglePaymentsClient(google: GooglePaySDK, testMode: boolean | undefined): GooglePayClient {
         let environment: EnvironmentType;
@@ -388,6 +355,56 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                     methodId: this._methodId,
                     paymentData,
                 };
+            });
+    }
+
+    private _updateShippingAndBillingAddress(paymentSucessPayload: PaymentSuccessPayload): Promise<void> {
+        return Promise.all([
+                this._synchronizeShippingAddress(paymentSucessPayload.shippingAddress),
+                this._synchronizeBillingAddress(paymentSucessPayload.billingAddress),
+            ]).then(() => Promise.resolve());
+    }
+
+    private _synchronizeShippingAddress(shippingAddress: GooglePayAddress): Promise<void> {
+
+        if (!this._methodId) {
+            throw new RemoteCheckoutSynchronizationError();
+        }
+
+        return Promise.resolve();
+
+        // return this._store.dispatch(
+        //     createAction(ShippingStrategyActionType.UpdateAddressRequested, undefined, { methodId: this._methodId })
+        // )
+        //     .then(() => {
+        //         return this._store.dispatch(
+        //                 this._consignmentActionCreator.updateAddress(mapGooglePayAddressToRequestAddress(shippingAddress))
+        //             );
+        //     })
+        //     .then(() => this._store.dispatch(
+        //         createAction(ShippingStrategyActionType.UpdateAddressSucceeded, undefined, { methodId: this._methodId })
+        //     ))
+        //     .catch(error => this._store.dispatch(
+        //         createErrorAction(ShippingStrategyActionType.UpdateAddressFailed, error, { methodId: this._methodId })
+        //     ));
+    }
+
+    private _synchronizeBillingAddress(billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
+        if (!this._methodId) {
+            throw new RemoteCheckoutSynchronizationError();
+        }
+
+        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(this._methodId))
+            .then(state => {
+                const remoteBillingAddress = state.billingAddress.getBillingAddress();
+
+                if (!remoteBillingAddress) {
+                    throw new MissingDataError(MissingDataErrorType.MissingCheckoutConfig);
+                }
+
+                return this._store.dispatch(
+                    this._billingAddressActionCreator.updateAddress(mapGooglePayAddressToRequestAddress(billingAddress, remoteBillingAddress.id))
+                );
             });
     }
 

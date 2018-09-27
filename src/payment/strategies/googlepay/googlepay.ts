@@ -1,6 +1,7 @@
 import {AddressRequestBody} from '../../../address/address';
 import {BillingAddressUpdateRequestBody} from '../../../billing/billing-address';
 import Checkout from '../../../checkout/checkout';
+import PaymentMethod from '../../payment-method';
 import {BraintreeModule, BraintreeModuleCreator} from '../braintree';
 
 export type EnvironmentType = 'PRODUCTION' | 'TEST';
@@ -9,8 +10,8 @@ type TotalPriceStatus = 'ESTIMATED' | 'FINAL' | 'NOT_CURRENTLY_KNOWN';
 type TokenizeType = 'AndroidPayCard' | 'CreditCard';
 export const GATEWAY = { braintree: 'braintree' };
 
-export interface GooglePayBraintreeSDK {
-    createPaymentDataRequest(request?: GooglePayPaymentDataRequest): { allowedPaymentMethods: string[] } | GooglePayBraintreePaymentDataRequest;
+export interface GooglePayBraintreeSDK extends BraintreeModule {
+    createPaymentDataRequest(request?: GooglePayDataRequestV1): { allowedPaymentMethods: string[] } | GooglePayPaymentDataRequestV1;
     parseResponse(paymentData: GooglePaymentData): Promise<TokenizePayload>;
 }
 
@@ -20,7 +21,7 @@ export interface GooglePayPaymentOptions {
     environment: EnvironmentType;
 }
 
-export interface GooglePayPaymentDataRequest {
+export interface GooglePayDataRequestV1 {
     merchantInfo: {
         merchantId: string,
     };
@@ -38,7 +39,7 @@ export interface GooglePayPaymentDataRequest {
     shippingAddressRequired: boolean;
 }
 
-export interface GooglePayBraintreePaymentDataRequest {
+export interface GooglePayPaymentDataRequestV1 {
     allowedPaymentMethods: string[];
     apiVersion: number;
     cardRequirements: {
@@ -79,7 +80,6 @@ export interface GooglePayIsReadyToPayResponse {
 }
 
 export interface GooglePaySDK {
-    // TODO: Map function PaymentsClient
     payments: any;
 }
 
@@ -200,9 +200,8 @@ export default function mapGooglePayAddressToRequestAddress(address: GooglePayAd
     };
 }
 
-// TODO: Type all this variables and methods
 export interface GooglePayInitializer {
-    initialize(checkout: Checkout, clientToken?: string, publishableKey?: string): any;
+    initialize(checkout: Checkout, paymentMethod?: PaymentMethod, publishableKey?: string): Promise<GooglePayPaymentDataRequestV1>;
     teardown(): Promise<void>;
-    parseResponse(paymentData: any): Promise<any>;
+    parseResponse(paymentData: any): Promise<TokenizePayload>;
 }
