@@ -47,12 +47,11 @@ import {
     GooglePayInitializer,
     GooglePayIsReadyToPayResponse,
     GooglePayPaymentDataRequestV1,
-    GooglePayPaymentInitializeOptions,
     GooglePayPaymentOptions, GooglePaySDK,
     PaymentSuccessPayload,
     TokenizePayload
 } from './googlepay';
-import GooglePayBraintreeInitializer from './googlepay-braintree-initializer';
+import GooglePayPaymentInitializeOptions from './googlepay-initialize-options';
 import GooglePayScriptLoader from './googlepay-script-loader';
 
 export default class GooglePayPaymentStrategy extends PaymentStrategy {
@@ -329,7 +328,6 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     }
 
     private _synchronizeShippingAddress(shippingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors | void> {
-
         if (!this._methodId) {
             throw new RemoteCheckoutSynchronizationError();
         }
@@ -367,10 +365,8 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
 
     @bind
     private _handleWalletButtonClick(event: Event): void {
-
         event.preventDefault();
 
         this._displayWallet();
-
     }
 }

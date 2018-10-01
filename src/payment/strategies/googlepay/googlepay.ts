@@ -2,10 +2,7 @@ import { AddressRequestBody } from '../../../address/address';
 import { BillingAddressUpdateRequestBody } from '../../../billing/billing-address';
 import Checkout from '../../../checkout/checkout';
 import PaymentMethod from '../../payment-method';
-import {
-    BraintreeModule,
-    BraintreeModuleCreator
-} from '../braintree';
+import { BraintreeModule, BraintreeModuleCreator } from '../braintree';
 
 export type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
@@ -171,29 +168,6 @@ export interface PaymentSuccessPayload {
 export interface GooglePaymentsError {
     statusCode: string;
     statusMessage?: string;
-}
-
-/**
- * A set of options that are required to initialize the Visa Checkout payment
- * method provided by Braintree.
- *
- * If the customer chooses to pay with Visa Checkout, they will be asked to
- * enter their payment details via a modal. You can hook into events emitted by
- * the modal by providing the callbacks listed below.
- */
-export interface GooglePayPaymentInitializeOptions {
-    /**
-     * A callback that gets called when Visa Checkout fails to initialize or
-     * selects a payment option.
-     *
-     * @param error - The error object describing the failure.
-     */
-    onError?(error: Error): void;
-
-    /**
-     * A callback that gets called when the customer selects a payment option.
-     */
-    onPaymentSelect?(): void;
 }
 
 export default function mapGooglePayAddressToRequestAddress(address: GooglePayAddress, id?: string): AddressRequestBody | BillingAddressUpdateRequestBody {
