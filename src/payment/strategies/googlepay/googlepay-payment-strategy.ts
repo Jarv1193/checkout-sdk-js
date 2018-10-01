@@ -2,7 +2,7 @@ import { RequestSender } from '@bigcommerce/request-sender';
 import Response from '@bigcommerce/request-sender/lib/response';
 
 import { BillingAddressActionCreator } from '../../../billing';
-import { BillingAddressUpdateRequestBody } from '../../../billing/billing-address';
+import { BillingAddressUpdateRequestBody } from '../../../billing';
 import CheckoutStore from '../../../checkout/checkout-store';
 import { CheckoutActionCreator } from '../../../checkout/index';
 import InternalCheckoutSelectors from '../../../checkout/internal-checkout-selectors';
@@ -37,6 +37,8 @@ import PaymentStrategy from '../payment-strategy';
 
 import {
     default as mapGooglePayAddressToRequestAddress,
+    ButtonColor,
+    ButtonType,
     EnvironmentType,
     GooglePaymentsError,
     GooglePaymentData,
@@ -46,8 +48,9 @@ import {
     GooglePayIsReadyToPayResponse,
     GooglePayPaymentDataRequestV1,
     GooglePayPaymentInitializeOptions,
-    GooglePayPaymentOptions,
-    GooglePaySDK, PaymentSuccessPayload, TokenizePayload
+    GooglePayPaymentOptions, GooglePaySDK,
+    PaymentSuccessPayload,
+    TokenizePayload
 } from './googlepay';
 import GooglePayBraintreeInitializer from './googlepay-braintree-initializer';
 import GooglePayScriptLoader from './googlepay-script-loader';
@@ -123,64 +126,12 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
             });
     }
 
-    private _synchronizeBillingAddress(): Promise<InternalCheckoutSelectors> {
-        const methodId = this._paymentMethod && this._paymentMethod.id;
-
-        if (!methodId) {
-            throw new RemoteCheckoutSynchronizationError();
-        }
-
-        return this._store.dispatch(
-            this._remoteCheckoutActionCreator.initializeBilling(methodId, { referenceId: '' })
-        )
-            .then(state => {
-                const billingAddress = state.billingAddress.getBillingAddress();
-                const internalBillingAddress = billingAddress && mapToInternalAddress(billingAddress);
-                if (!billingAddress) {
-                    throw new Error('error');
-                }
-                const remoteAddress: InternalAddress = mapToInternalAddress(billingAddress); // TODO: Update with the wallet's address
-                remoteAddress.addressLine1 = 'known street example BILLING';
-
-                return this._store.dispatch(
-                    this._billingAddressActionCreator.updateAddress(mapFromInternalAddress(remoteAddress))
-                );
-            });
-    }
-
-    private _synchronizeShippingAddress(): Promise<InternalCheckoutSelectors> {
-        const methodId = this._paymentMethod && this._paymentMethod.id;
-
-        if (!methodId) {
-            throw new RemoteCheckoutSynchronizationError();
-        }
-
-        return this._store.dispatch(
-            createAction(ShippingStrategyActionType.UpdateAddressRequested, undefined, { methodId })
-        )
-            .then(() => this._store.dispatch(
-                this._remoteCheckoutActionCreator.initializeShipping(methodId, { referenceId: '' })
-            ))
-            .then(state => {
-                const address = state.shippingAddress.getShippingAddress();
-
-                if (!address) {
-                    throw new Error('error');
-                }
-
-                const remoteAddress: InternalAddress = mapToInternalAddress(address); // TODO: Update with the wallet's address
-                remoteAddress.addressLine1 = 'known street example SHIPPING';
-
-                return this._store.dispatch(
-                    this._consignmentActionCreator.updateAddress(mapFromInternalAddress(remoteAddress))
-                );
-            })
-            .then(() => this._store.dispatch(
-                createAction(ShippingStrategyActionType.UpdateAddressSucceeded, undefined, { methodId })
-            ))
-            .catch(error => this._store.dispatch(
-                createErrorAction(ShippingStrategyActionType.UpdateAddressFailed, error, { methodId })
-            ));
+    createButton(): HTMLElement {
+        return this._googlePaymentsClient.createButton({
+            buttonColor: ButtonColor.default,
+            buttonType: ButtonType.short,
+            onClick: this._handleWalletButtonClick,
+        });
     }
 
     private _configureWallet(): Promise<void> {
