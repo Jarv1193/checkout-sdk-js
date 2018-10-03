@@ -20,6 +20,7 @@ import {
     SagePayPaymentStrategy,
     SquarePaymentStrategy,
 } from './strategies';
+import { GooglePayPaymentStrategy } from './strategies/googlepay';
 
 describe('CreatePaymentStrategyRegistry', () => {
     let registry: PaymentStrategyRegistry;
