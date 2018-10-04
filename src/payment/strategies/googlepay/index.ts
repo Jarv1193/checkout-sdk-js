@@ -5,3 +5,4 @@ export { default as GooglePayPaymentStrategy } from './googlepay-payment-strateg
 export { default as mapGooglePayAddressToRequestAddress } from './googlepay';
 export { default as GooglePayBraintreeInitializer } from './googlepay-braintree-initializer';
 export { default as GooglePayPaymentInitializeOptions } from './googlepay-initialize-options';
+export { default as GooglePayPaymentProcessor } from './googlepay-payment-processor';
