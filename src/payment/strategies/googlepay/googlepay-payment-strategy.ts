@@ -80,11 +80,10 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
             .then(() => super.initialize(options));
     }
 
-                this._paymentMethod = state.paymentMethods.getPaymentMethod(methodId);
-
-                if (!this._paymentMethod || !this._paymentMethod.clientToken || !this._paymentMethod.initializationData.gateway) {
-                    throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
-                }
+    deinitialize(options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
+        if (this._walletButton) {
+            this._walletButton.removeEventListener('click', this._handleWalletButtonClick);
+        }
 
                 const gateway = this._paymentMethod.initializationData.gateway;
 

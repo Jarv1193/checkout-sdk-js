@@ -38,10 +38,13 @@ import GooglePayPaymentProcessor from './googlepay-payment-processor';
 import GooglePayPaymentStrategy from './googlepay-payment-strategy';
 import GooglePayScriptLoader from './googlepay-script-loader';
 import {
-    getGoogleOrderRequestBody, getGooglePaymentDataMock, getGooglePaymentDataPayload,
-    getGooglePaySDKMock
-} from './googlepay.mock';
-import {MissingDataErrorType} from "../../../common/error/errors";
+    GooglePayBraintreeInitializer,
+    GooglePayPaymentProcessor,
+    GooglePayPaymentStrategy,
+    GooglePayScriptLoader
+} from './';
+import { GooglePaymentData, GooglePayInitializer, TokenizePayload } from './googlepay';
+import { getGoogleOrderRequestBody, getGooglePaymentDataPayload } from './googlepay.mock';
 
 describe('GooglePayPaymentStrategy', () => {
     let store: CheckoutStore;
