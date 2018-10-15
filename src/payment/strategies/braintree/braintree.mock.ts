@@ -1,6 +1,5 @@
 import { OrderPaymentRequestBody } from '../../../order';
 import { getOrderRequestBody } from '../../../order/internal-orders.mock';
-import { GooglePayBraintreeSDK } from '../googlepay/googlepay';
 
 import {
     BraintreeClient,
@@ -14,6 +13,7 @@ import {
     BraintreeTokenizeResponse,
     BraintreeVerifyPayload,
     BraintreeVisaCheckout,
+    GooglePayBraintreeSDK,
 } from './braintree';
 import { BraintreeThreeDSecureOptions } from './braintree-payment-options';
 

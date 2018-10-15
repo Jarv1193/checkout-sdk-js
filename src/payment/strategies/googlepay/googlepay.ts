@@ -1,18 +1,11 @@
-import { AddressRequestBody } from '../../../address/address';
-import { BillingAddressUpdateRequestBody } from '../../../billing/billing-address';
-import Checkout from '../../../checkout/checkout';
-import PaymentMethod from '../../payment-method';
-import { BraintreeModule, BraintreeModuleCreator } from '../braintree';
+import { PaymentMethod } from '../..';
+import { Checkout } from '../../../checkout';
+import { BraintreeModuleCreator, GooglePayBraintreeSDK } from '../braintree';
 
 export type EnvironmentType = 'PRODUCTION' | 'TEST';
 type AddressFormat = 'FULL' | 'MIN';
 type TotalPriceStatus = 'ESTIMATED' | 'FINAL' | 'NOT_CURRENTLY_KNOWN';
 type TokenizeType = 'AndroidPayCard' | 'CreditCard';
-
-export interface GooglePayBraintreeSDK extends BraintreeModule {
-    createPaymentDataRequest(request?: GooglePayDataRequestV1): GooglePayPaymentDataRequestV1;
-    parseResponse(paymentData: GooglePaymentData): Promise<TokenizePayload>;
-}
 
 export interface GooglePayInitializer {
     initialize(checkout: Checkout, paymentMethod: PaymentMethod, hasShippingAddress: boolean, publishableKey?: string): Promise<GooglePayPaymentDataRequestV1>;

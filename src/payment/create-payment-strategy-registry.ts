@@ -257,7 +257,8 @@ export default function createPaymentStrategyRegistry(
             paymentStrategyActionCreator,
             requestSender,
             new ChasePayScriptLoader(getScriptLoader()),
-            new WepayRiskClient(scriptLoader))
+            new WepayRiskClient(scriptLoader)
+        )
     );
 
     registry.register('googlepay', () =>
@@ -268,15 +269,13 @@ export default function createPaymentStrategyRegistry(
             paymentStrategyActionCreator,
             paymentActionCreator,
             orderActionCreator,
-            new GooglePayBraintreeInitializer(braintreeSdkCreator),
-            requestSender,
             new GooglePayPaymentProcessor(
                 store,
                 paymentMethodActionCreator,
                 new GooglePayScriptLoader(scriptLoader),
                 new GooglePayBraintreeInitializer(braintreeSdkCreator),
-                new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
-                new ShippingStrategyActionCreator(createShippingStrategyRegistry(store, requestSender))
+                requestSender,
+                new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender))
             )
         )
     );

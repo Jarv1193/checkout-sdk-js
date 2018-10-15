@@ -1,4 +1,6 @@
-import { PaymentMethod, PaymentMethodActionCreator } from '../..';
+import { RequestSender, Response } from '@bigcommerce/request-sender';
+
+import { PaymentMethodActionCreator } from '../..';
 import { BillingAddressActionCreator, BillingAddressUpdateRequestBody } from '../../../billing';
 import { CheckoutStore, InternalCheckoutSelectors } from '../../../checkout';
 import {
@@ -6,33 +8,35 @@ import {
     MissingDataErrorType,
     NotInitializedError,
     NotInitializedErrorType,
-    StandardError,
 } from '../../../common/error/errors';
-import { RemoteCheckoutSynchronizationError } from '../../../remote-checkout/errors';
-import { ShippingStrategyActionCreator } from '../../../shipping';
+import { toFormUrlEncoded } from '../../../common/http-request/';
 
 import {
-    ButtonColor, ButtonType,
-    EnvironmentType, GooglePaymentsError, GooglePaymentData, GooglePayAddress, GooglePayClient, GooglePayInitializer,
+    ButtonColor,
+    ButtonType,
+    EnvironmentType,
+    GooglePaymentData,
+    GooglePayAddress,
+    GooglePayClient,
+    GooglePayInitializer,
     GooglePayPaymentDataRequestV1,
-    GooglePaySDK, TokenizePayload
+    GooglePaySDK,
+    TokenizePayload
 } from './googlepay';
 import GooglePayScriptLoader from './googlepay-script-loader';
 
 export default class GooglePayPaymentProcessor {
-    private _googlePaymentsClient!: GooglePayClient;
-    private _methodId!: string;
-    private _paymentMethod?: PaymentMethod;
-    private _walletButton?: HTMLElement;
-    private _googlePaymentDataRequest!: GooglePayPaymentDataRequestV1;
+    private _googlePaymentsClient?: GooglePayClient;
+    private _methodId?: string;
+    private _googlePaymentDataRequest?: GooglePayPaymentDataRequestV1;
 
     constructor(
         private _store: CheckoutStore,
         private _paymentMethodActionCreator: PaymentMethodActionCreator,
         private _googlePayScriptLoader: GooglePayScriptLoader,
         private _googlePayInitializer: GooglePayInitializer,
-        private _billingAddressActionCreator: BillingAddressActionCreator,
-        private _shippingStrategyActionCreator: ShippingStrategyActionCreator
+        private _requestSender: RequestSender,
+        private _billingAddressActionCreator: BillingAddressActionCreator
     ) { }
 
     initialize(methodId: string): Promise<void> {
@@ -45,17 +49,50 @@ export default class GooglePayPaymentProcessor {
         return this._googlePayInitializer.teardown();
     }
 
-    createButton(callback: () => {}): HTMLElement {
+    createButton(
+        onClick: () => {},
+        buttonType: ButtonType = ButtonType.Short,
+        buttonColor: ButtonColor = ButtonColor.Default
+    ): HTMLElement {
+        if (!this._googlePaymentsClient) {
+            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+        }
+
         return this._googlePaymentsClient.createButton({
             buttonColor: ButtonColor.Default,
             buttonType: ButtonType.Short,
-            onClick: callback,
+            onClick,
         });
     }
 
-    updateBillingAddress(billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
+    displayWallet(): Promise<GooglePaymentData> {
+        if (!this._googlePaymentsClient || !this._googlePaymentDataRequest || !this._googlePaymentDataRequest) {
+            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+        }
+
+        const googlePaymentsClient = this._googlePaymentsClient;
+        const googlePaymentDataRequest = this._googlePaymentDataRequest;
+
+        return this._googlePaymentsClient.isReadyToPay({
+            allowedPaymentMethods: this._googlePaymentDataRequest.allowedPaymentMethods,
+        }).then(response => {
+            if (response.result) {
+                return googlePaymentsClient.loadPaymentData(googlePaymentDataRequest);
+            } else {
+                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+            }
+        });
+    }
+
+    handleSuccess(paymentData: GooglePaymentData): Promise<InternalCheckoutSelectors> {
+        return this._googlePayInitializer.parseResponse(paymentData)
+            .then(tokenizedPayload => this._postForm(tokenizedPayload))
+            .then(() => this.updateBillingAddress(paymentData.cardInfo.billingAddress));
+    }
+
+    private updateBillingAddress(billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
         if (!this._methodId) {
-            throw new RemoteCheckoutSynchronizationError();
+            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
         }
 
         const remoteBillingAddress = this._store.getState().billingAddress.getBillingAddress();
@@ -64,50 +101,48 @@ export default class GooglePayPaymentProcessor {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
 
-        const googlePayAddressMapped: BillingAddressUpdateRequestBody = this._mapGooglePayAddressToBillingAddress(billingAddress, remoteBillingAddress.id);
+        const googlePayAddressMapped = this._mapGooglePayAddressToBillingAddress(billingAddress, remoteBillingAddress.id);
 
         return this._store.dispatch(
             this._billingAddressActionCreator.updateAddress(googlePayAddressMapped)
         );
     }
 
-    displayWallet(): Promise<GooglePaymentData> {
-        if (!this._paymentMethod) {
-            throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
-        }
-
-        if (!this._googlePaymentsClient && !this._googlePaymentDataRequest) {
-            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-        }
-
-        return this._googlePaymentsClient.isReadyToPay({
-            allowedPaymentMethods: this._googlePaymentDataRequest.allowedPaymentMethods,
-        }).then( response => {
-            if (response) {
-                return this._googlePaymentsClient.loadPaymentData(this._googlePaymentDataRequest)
-                    .then(paymentData => paymentData)
-                    .catch((err: GooglePaymentsError) => {
-                        throw new Error(err.statusCode);
-                    });
-            } else {
-                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-            }
-        });
+    private _getCardInformation(cardInformation: { cardType: string, lastFour: string }) {
+        return {
+            type: cardInformation.cardType,
+            number: cardInformation.lastFour,
+        };
     }
 
-    parseResponse(paymentData: any): Promise<TokenizePayload> {
-        return this._googlePayInitializer.parseResponse(paymentData);
+    private _postForm(postPaymentData: TokenizePayload): Promise<Response<any>> {
+        const cardInformation = postPaymentData.details;
+
+        return this._requestSender.post('/checkout.php', {
+            headers: {
+                Accept: 'text/html',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: toFormUrlEncoded({
+                payment_type: postPaymentData.type,
+                nonce: postPaymentData.nonce,
+                provider: this._methodId,
+                action: 'set_external_checkout',
+                card_information: this._getCardInformation(cardInformation),
+            }),
+        });
     }
 
     private _configureWallet(): Promise<void> {
         if (!this._methodId) {
-            throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
+            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
         }
 
-        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(this._methodId))
+        const methodId = this._methodId;
+
+        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId))
             .then(state => {
-                const paymentMethod = state.paymentMethods.getPaymentMethod(this._methodId);
-                const storeConfig = state.config.getStoreConfig();
+                const paymentMethod = state.paymentMethods.getPaymentMethod(methodId);
                 const checkout = state.checkout.getCheckout();
                 const hasShippingAddress = !!state.shippingAddress.getShippingAddress();
 
@@ -131,17 +166,16 @@ export default class GooglePayPaymentProcessor {
                     this._googlePayInitializer.initialize(checkout, paymentMethod, hasShippingAddress),
                 ])
                     .then(([googlePay, googlePayPaymentDataRequest]) => {
-                        this._googlePaymentsClient = this._getGooglePaymentsClient(googlePay, testMode);
+                        this._googlePaymentsClient = this._getGooglePayClient(googlePay, testMode);
                         this._googlePaymentDataRequest = googlePayPaymentDataRequest;
                     })
                     .catch((error: Error) => {
-                        throw new StandardError(error.message);
+                        throw error;
                     });
             });
     }
 
-    private _getGooglePaymentsClient(google: GooglePaySDK, testMode?: boolean): GooglePayClient {
-        testMode = true; // TODO: remove when push this code to final review
+    private _getGooglePayClient(google: GooglePaySDK, testMode?: boolean): GooglePayClient {
         if (testMode === undefined) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }

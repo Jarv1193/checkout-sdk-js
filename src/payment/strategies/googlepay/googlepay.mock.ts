@@ -8,11 +8,11 @@ import {Consignment} from '../../../shipping';
 import {Tax} from '../../../tax';
 import PaymentMethod from '../../payment-method';
 import PaymentMethodConfig from '../../payment-method-config';
+import { GooglePayBraintreeSDK } from '../braintree';
 
 import {
     GooglePaymentData,
     GooglePayAddress,
-    GooglePayBraintreeSDK,
     GooglePayPaymentDataRequestV1,
     GooglePaySDK
 } from './googlepay';

@@ -1,7 +1,5 @@
 import { NotInitializedError, NotInitializedErrorType } from '../../../common/error/errors';
 
-import {GooglePayBraintreeSDK} from '../googlepay';
-
 import {
     BraintreeClient,
     BraintreeDataCollector,
@@ -10,6 +8,7 @@ import {
     BraintreePaypalCheckout,
     BraintreeThreeDSecure,
     BraintreeVisaCheckout,
+    GooglePayBraintreeSDK,
 } from './braintree';
 import BraintreeScriptLoader from './braintree-script-loader';
 
@@ -125,9 +124,7 @@ export default class BraintreeSDKCreator {
                 this.getClient(),
                 this._braintreeScriptLoader.loadGooglePayment(),
             ])
-                .then(([client, googlePay]) => {
-                    return googlePay.create({ client });
-                });
+                .then(([client, googlePay]) => googlePay.create({ client }));
         }
 
         return this._googlePay;

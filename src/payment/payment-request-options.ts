@@ -7,7 +7,7 @@ import {
     ChasePayInitializeOptions,
     GooglePayPaymentInitializeOptions,
     KlarnaPaymentInitializeOptions,
-    SquarePaymentInitializeOptions
+    SquarePaymentInitializeOptions,
 } from './strategies';
 
 /**

@@ -1,11 +1,10 @@
 import { Checkout } from '../../../checkout';
 import {
     MissingDataError,
-    MissingDataErrorType,
-    StandardError
+    MissingDataErrorType
 } from '../../../common/error/errors';
 import PaymentMethod from '../../payment-method';
-import { BraintreeSDKCreator } from '../braintree';
+import { BraintreeSDKCreator, GooglePayBraintreeSDK } from '../braintree';
 
 import {
     GooglePaymentData,
@@ -14,7 +13,6 @@ import {
     GooglePayPaymentDataRequestV1,
     TokenizePayload
 } from './googlepay';
-import { GooglePayBraintreeSDK } from './googlepay';
 
 export default class GooglePayBraintreeInitializer implements GooglePayInitializer {
     private _googlePaymentInstance!: GooglePayBraintreeSDK;
@@ -24,9 +22,9 @@ export default class GooglePayBraintreeInitializer implements GooglePayInitializ
     ) {}
 
     initialize(
-               checkout: Checkout,
-               paymentMethod: PaymentMethod,
-               hasShippingAddress: boolean
+        checkout: Checkout,
+        paymentMethod: PaymentMethod,
+        hasShippingAddress: boolean
     ): Promise<GooglePayPaymentDataRequestV1> {
         if (!paymentMethod.clientToken) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
@@ -41,9 +39,8 @@ export default class GooglePayBraintreeInitializer implements GooglePayInitializ
                 return this._createGooglePayPayload(
                     checkout,
                     paymentMethod.initializationData.platformToken,
-                    hasShippingAddress);
-            }).catch((error: Error) => {
-                throw new StandardError(error.message);
+                    hasShippingAddress
+                );
             });
     }
 
@@ -56,9 +53,9 @@ export default class GooglePayBraintreeInitializer implements GooglePayInitializ
     }
 
     private _createGooglePayPayload(
-                                    checkout: Checkout,
-                                    platformToken: string,
-                                    hasShippingAddress: boolean
+        checkout: Checkout,
+        platformToken: string,
+        hasShippingAddress: boolean
     ): GooglePayPaymentDataRequestV1 {
         if (!platformToken) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
